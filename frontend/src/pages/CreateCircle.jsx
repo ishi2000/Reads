@@ -60,18 +60,53 @@ export default function CreateCircle() {
 
   const inviteUrl = inviteCode ? `${window.location.origin}/join/${inviteCode}` : "";
 
-  const copyInvite = () => {
-    navigator.clipboard.writeText(inviteUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+  const copyInvite = async () => {
+    let ok = false;
+    // Primary path — modern clipboard API. Wrapped in try/catch because preview
+    // iframes / Permissions-Policy can throw NotAllowedError (BUG-003).
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(inviteUrl);
+        ok = true;
+      }
+    } catch {
+      ok = false;
+    }
+    // Fallback — hidden textarea + document.execCommand("copy"). Works in
+    // restricted contexts (preview iframe, older browsers).
+    if (!ok) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = inviteUrl;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.top = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch {
+        ok = false;
+      }
+    }
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } else {
+      toast.message("Long-press the link above to copy it.");
+    }
   };
 
   const share = async () => {
     if (navigator.share) {
       try {
         await navigator.share({ title: "Read together on Cosift", url: inviteUrl });
-      } catch {}
-    } else copyInvite();
+        return;
+      } catch {
+        // user cancelled or share blocked — fall through to copy
+      }
+    }
+    await copyInvite();
   };
 
   return (
@@ -183,7 +218,16 @@ export default function CreateCircle() {
             <div className="mt-8 bg-white border border-[#EAE6E1] rounded-2xl p-5">
               <div className="text-[10px] tracking-[0.2em] uppercase text-[#A8A5A1]">Invite link</div>
               <div
-                className="mt-2 font-mono text-sm text-[#2C2A29] break-all"
+                className="mt-2 font-mono text-sm text-[#2C2A29] break-all select-all cursor-text"
+                onClick={(e) => {
+                  // Auto-select the URL when tapped, so users can copy manually
+                  // if the Clipboard API is blocked by the host environment.
+                  const range = document.createRange();
+                  range.selectNodeContents(e.currentTarget);
+                  const sel = window.getSelection();
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+                }}
                 data-testid="invite-link"
               >
                 {inviteUrl}
