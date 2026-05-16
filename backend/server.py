@@ -316,16 +316,6 @@ async def upload_book(
     return doc
 
 
-@api.get("/books/{book_id}")
-async def get_book(book_id: str, user: Dict = Depends(get_current_user)):
-    book = await db.books.find_one({"book_id": book_id}, {"_id": 0})
-    if not book:
-        raise HTTPException(404, "Book not found")
-    prog = await db.progress.find_one({"user_id": user["user_id"], "book_id": book_id}, {"_id": 0})
-    book["my_progress"] = prog or {"current_page": 0, "total_pages": book.get("total_pages", 0)}
-    return book
-
-
 @api.get("/books/solo")
 async def list_solo_books(user: Dict = Depends(get_current_user)):
     books = await db.books.find(
@@ -337,6 +327,16 @@ async def list_solo_books(user: Dict = Depends(get_current_user)):
         )
         b["my_progress"] = prog or {"current_page": 0, "total_pages": b.get("total_pages", 0)}
     return books
+
+
+@api.get("/books/{book_id}")
+async def get_book(book_id: str, user: Dict = Depends(get_current_user)):
+    book = await db.books.find_one({"book_id": book_id}, {"_id": 0})
+    if not book:
+        raise HTTPException(404, "Book not found")
+    prog = await db.progress.find_one({"user_id": user["user_id"], "book_id": book_id}, {"_id": 0})
+    book["my_progress"] = prog or {"current_page": 0, "total_pages": book.get("total_pages", 0)}
+    return book
 
 
 @api.put("/books/{book_id}/total-pages")
