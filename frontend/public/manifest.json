@@ -1,0 +1,25 @@
+{
+  "name": "Cosift — Sift meaning, together",
+  "short_name": "Cosift",
+  "description": "Read PDFs together, quietly. Unlock insights from other readers as you turn the pages.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F9F8F6",
+  "theme_color": "#C86A58",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
