@@ -1,0 +1,204 @@
+{
+  "theme_archetype": {
+    "name": "Archetype 1: Organic & Earthy",
+    "theme": "Light",
+    "rationale": "Perfect for a calm, reflective, intimate reading experience. Avoids the noisy 'social media' look by grounding the UI in warm paper tones, allowing the colorful book covers and content to stand out."
+  },
+  "typography": {
+    "fonts": {
+      "headings": "Cormorant Garamond",
+      "body": "Manrope"
+    },
+    "scale": {
+      "h1": "text-4xl sm:text-5xl tracking-tight font-serif",
+      "h2": "text-2xl sm:text-3xl tracking-tight font-serif",
+      "h3": "text-xl sm:text-2xl font-serif",
+      "h4": "text-lg font-sans font-medium",
+      "body": "text-base font-sans leading-relaxed",
+      "small": "text-sm font-sans text-stone-500",
+      "overline": "text-[10px] tracking-[0.2em] uppercase font-sans font-semibold text-stone-400"
+    },
+    "rules": [
+      "NEVER use Inter or Roboto.",
+      "Headings must use Cormorant Garamond for an editorial, book-like feel.",
+      "Body text must use Manrope for high legibility on mobile.",
+      "Use italicized serif for quotes, highlights, and the 'locked insight' messages."
+    ]
+  },
+  "colors": {
+    "background": {
+      "default": "#F9F8F6",
+      "surface": "#FFFFFF",
+      "sheet": "#FCFBF9"
+    },
+    "text": {
+      "primary": "#2C2A29",
+      "secondary": "#787571",
+      "muted": "#A8A5A1",
+      "inverted": "#FFFFFF"
+    },
+    "accent": {
+      "primary": "#C86A58",
+      "primary_hover": "#B35A4A",
+      "highlight": "rgba(200, 106, 88, 0.15)"
+    },
+    "ui": {
+      "border": "#EAE6E1",
+      "divider": "#F2EFEA",
+      "locked_bg": "#F4F2EE"
+    },
+    "rules": [
+      "NO purple or violet gradients.",
+      "NO dark-on-dark themes.",
+      "Background is a warm paper tone, not pure white.",
+      "Primary text is charcoal/ink, never pure black #000000.",
+      "Use terracotta (#C86A58) sparingly as the sole accent color for CTAs, active states, and highlights."
+    ]
+  },
+  "layout_spacing": {
+    "container": "max-w-md mx-auto h-[100dvh] relative overflow-hidden bg-[#F9F8F6] flex flex-col",
+    "padding": {
+      "screen": "p-6",
+      "card": "p-4",
+      "sheet": "p-6"
+    },
+    "rules": [
+      "Mobile-first PWA approach. Lock width on desktop to a mobile-sized container (max-w-md) centered, to emulate native app feel.",
+      "Generous spacing: use p-6 or p-8 for sections.",
+      "Avoid equal-spacing center-aligned generic grids. Use vertical stacks and bento-style asymmetrical layouts where possible."
+    ]
+  },
+  "micro_animations": {
+    "framer_motion": {
+      "list_stagger": {
+        "initial": { "opacity": 0, "y": 10 },
+        "animate": { "opacity": 1, "y": 0 },
+        "transition": { "staggerChildren": 0.1, "ease": [0.25, 0.1, 0.25, 1], "duration": 0.4 }
+      },
+      "bottom_sheet": {
+        "initial": { "y": "100%" },
+        "animate": { "y": 0 },
+        "exit": { "y": "100%" },
+        "transition": { "type": "spring", "damping": 25, "stiffness": 200 }
+      },
+      "activity_banner": {
+        "initial": { "opacity": 0, "y": -20, "scale": 0.95 },
+        "animate": { "opacity": 1, "y": 0, "scale": 1 },
+        "exit": { "opacity": 0, "y": -10 },
+        "transition": { "duration": 0.3, "ease": "easeOut" }
+      }
+    },
+    "rules": [
+      "Calm, not bouncy. High damping on springs.",
+      "Use opacity and gentle Y-axis translations for entry.",
+      "No aggressive scaling or vibrating animations."
+    ]
+  },
+  "components": {
+    "bottom_tab_bar": {
+      "classes": "fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-xl border-t border-[#EAE6E1] h-20 pb-4 flex justify-around items-center px-4 z-50",
+      "active_state": "text-[#C86A58] flex flex-col items-center gap-1",
+      "inactive_state": "text-[#A8A5A1] hover:text-[#787571] flex flex-col items-center gap-1"
+    },
+    "book_card": {
+      "classes": "relative flex gap-4 bg-white p-4 rounded-xl border border-[#EAE6E1] items-center text-left",
+      "image_container": "w-16 h-24 rounded shadow-sm overflow-hidden flex-shrink-0 bg-stone-100",
+      "content": "flex flex-col flex-grow",
+      "progress_bar": "h-1 w-full bg-stone-100 rounded-full mt-3 overflow-hidden",
+      "progress_fill": "h-full bg-[#C86A58]"
+    },
+    "locked_insight_card": {
+      "classes": "bg-[#F4F2EE] border border-[#EAE6E1]/50 rounded-xl p-6 flex flex-col items-center justify-center text-center gap-3 w-full my-4",
+      "icon": "text-[#A8A5A1] w-5 h-5",
+      "text": "font-serif italic text-[#787571] text-lg blur-[3px] select-none",
+      "helper_text": "text-xs font-sans text-[#A8A5A1] uppercase tracking-widest mt-2"
+    },
+    "activity_banner": {
+      "classes": "absolute top-4 left-4 right-4 bg-white/95 backdrop-blur-md border border-[#EAE6E1] shadow-sm rounded-full py-3 px-5 flex items-center gap-3 z-40",
+      "text": "text-sm font-sans text-[#2C2A29]"
+    },
+    "bottom_sheet": {
+      "classes": "fixed inset-x-0 bottom-0 max-w-md mx-auto bg-[#FCFBF9] rounded-t-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.04)] border-t border-[#EAE6E1] p-6 z-[60] flex flex-col"
+    },
+    "primary_button": {
+      "classes": "w-full bg-[#C86A58] hover:bg-[#B35A4A] text-white rounded-full py-4 text-base font-medium transition-colors text-center shadow-sm"
+    },
+    "secondary_button": {
+      "classes": "w-full bg-white border border-[#EAE6E1] hover:bg-stone-50 text-[#2C2A29] rounded-full py-4 text-base font-medium transition-colors text-center"
+    }
+  },
+  "screens": {
+    "landing": {
+      "layout": "Hero image top (max-h-[40vh] object-cover rounded-b-3xl), rich Cormorant Garamond H1 'Begin your Reading Journey', solid body text, vertical stack of 3 Primary actions.",
+      "ctas": "1. Start Reading Circle (Primary), 2. Join via Link (Secondary), 3. Solo Session (Ghost)"
+    },
+    "reads_tab": {
+      "layout": "Vertical scroll. Top section: Reading Circles (horizontal scroll of bento cards or vertical stack). Bottom section: Solo Reading.",
+      "card_details": "Show book cover (colorful), title, unread insights count (subtle dot indicator), active readers avatars."
+    },
+    "turns_tab": {
+      "layout": "Async activity feed. Top: Group progress bar (minimalist line with avatar markers). Feed items: 'User highlighted...', 'User unlocked...', threaded vertically with 1px connecting lines."
+    },
+    "personal_tab": {
+      "layout": "Bento grid for analytics. Categories: My Thoughts, Vocabulary Bank, Saved Insights."
+    },
+    "pdf_reading_screen": {
+      "critical_rules": "MOST IMPORTANT SCREEN. Must feel distraction-free.",
+      "top_bar": "Transparent/Glass. Back button, Chapter title, minimalist progress dots.",
+      "content_area": "PDF.js wrapper or scrollable text representation. Sepia/Warm filter if possible. Selected text triggers bottom sheet.",
+      "bottom_toolbar": "Floating pill above screen bottom. Contains: Highlight (marker icon), Add Thought (quote icon), Add to Vocab (book icon).",
+      "social_layer": "In-line highlight markers (underlines in pale terracotta). Tapping opens a bottom sheet with the threaded conversation or thought.",
+      "locked_state": "If a user scrolls to a page with future insights they haven't organically reached based on their 'turn', show the Locked Insight Card inline."
+    },
+    "completion_analytics": {
+      "layout": "Editorial layout. Massive serif numbers for stats. 'You read together for 42 days.' High contrast editorial typography."
+    }
+  },
+  "image_urls": [
+    {
+      "url": "https://static.prod-images.emergentagent.com/jobs/5d657e1f-df39-4855-bbe9-14b5ed0639a0/images/18af3646daa1ba51e553ff3163b4f1569c267ce342e14d2a99c82702f33f394e.png",
+      "category": "landing_hero",
+      "description": "Minimalist calm abstract art, suggesting a reading journey with terracotta and sage accents. Use at the top of the Landing screen."
+    },
+    {
+      "url": "https://static.prod-images.emergentagent.com/jobs/5d657e1f-df39-4855-bbe9-14b5ed0639a0/images/43b39c95ae7df135476b53f1a15553f75fb2b4aea0f08db8f4d954a9b75e25f3.png",
+      "category": "book_cover",
+      "description": "Vibrant deep blue and burnt orange abstract cover. Use as a book cover in the Reads tab to provide a colorful accent."
+    },
+    {
+      "url": "https://static.prod-images.emergentagent.com/jobs/5d657e1f-df39-4855-bbe9-14b5ed0639a0/images/de0c690e7a00a066b5cefd3eb11ea719762da635e9aeee33d437e33d6eb7ff51.png",
+      "category": "book_cover",
+      "description": "Lush forest green and soft peach abstract cover. Use as a book cover placeholder."
+    },
+    {
+      "url": "https://static.prod-images.emergentagent.com/jobs/5d657e1f-df39-4855-bbe9-14b5ed0639a0/images/1e5f4ec205f7af332289a115e5b9dea3260ef47058fb3cc23c2d1cbd3285b658.png",
+      "category": "book_cover",
+      "description": "Vibrant mustard yellow and charcoal abstract cover. Use as a book cover placeholder."
+    },
+    {
+      "url": "https://static.prod-images.emergentagent.com/jobs/5d657e1f-df39-4855-bbe9-14b5ed0639a0/images/fe0b5fa3f1ecef4388439b48aa658e5e2655242a06a610f92462ee26c40acc55.png",
+      "category": "book_cover",
+      "description": "Rich maroon and soft blush pink abstract cover. Use as a book cover placeholder."
+    },
+    {
+      "url": "https://static.prod-images.emergentagent.com/jobs/5d657e1f-df39-4855-bbe9-14b5ed0639a0/images/962321ba0c250a9ae81bbe2a5b3dcbf066fa04dd63f95c71b772ac00eda2f92d.png",
+      "category": "empty_state",
+      "description": "Minimalist continuous line art illustration of an open book. Use for empty states (e.g., no reading circles yet, no saved insights)."
+    }
+  ],
+  "icons_spec": {
+    "library": "lucide-react",
+    "stroke_width": 1.5,
+    "rules": "Use thin, minimalist icons. Avoid filled icons unless indicating an active tab state."
+  },
+  "instructions_to_main_agent": [
+    "CRITICAL: Apply `data-testid` to ALL interactive elements, buttons, inputs, links, tabs, and key text fields.",
+    "Install and use Cormorant Garamond and Manrope fonts via Google Fonts. Do NOT use Inter or Roboto.",
+    "Enforce a mobile-first constraint by wrapping the main application in `<div className='max-w-md mx-auto h-[100dvh] relative overflow-x-hidden overflow-y-auto bg-[#F9F8F6]'>` to simulate a native PWA on desktop viewports.",
+    "Do NOT use standard Shadcn cards. Use the custom component classes defined in `components.book_card` and `components.locked_insight_card`.",
+    "Use framer-motion for the bottom sheet modals and activity banners. Ensure animations are slow and calm (high damping).",
+    "Use lucide-react icons with strokeWidth={1.5} for a delicate, editorial feel.",
+    "The PDF Reading screen must prioritize the reading content. Keep the UI chrome minimal, using glassmorphism for top and bottom bars.",
+    "Never use dark-on-dark themes or purple gradients. Stick strictly to the warm paper, charcoal text, and terracotta accent palette."
+  ]
+}
