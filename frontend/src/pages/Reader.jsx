@@ -12,8 +12,9 @@ import LockedInsightCard from "../components/LockedInsightCard";
 import ActivityBanner from "../components/ActivityBanner";
 import { toast } from "sonner";
 
-// PDF.js worker — use the worker bundled with pdfjs-dist
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
+// PDF.js worker — served locally from public/ to guarantee the worker version matches
+// the pdfjs-dist bundled by react-pdf (avoids cdnjs version-not-found errors).
+pdfjs.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs`;
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
