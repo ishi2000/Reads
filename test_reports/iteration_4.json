@@ -1,0 +1,44 @@
+{
+  "summary": "BUG-005 RETEST — STILL NOT FIXED. The post-add-reflection / post-save-word handlers were updated to KEEP postCreateHighlight set (good), but the thought-save handler at Reader.jsx line 578 is STILL hardcoded to `onClick={() => saveHighlight(true)}`. It never branches on postCreateHighlight presence — so it still POSTs a new /highlights row instead of calling saveReflectionOnExisting(). The newly added saveReflectionOnExisting() helper (line 222) remains dead code. Direct repro on live frontend: after action-highlight the book had 1 highlight; after thought-save it had 2 (the reflection text ended up on the duplicate, not the original). vocab-save IS correctly branched (line 603) and Save Word does not create a duplicate highlight (its initial action-highlight creates the only highlight; vocab persists in its own collection). Regression test for Start Discussion could not complete because the second/third selection cycle in the same session was blocked by leftover post-action-sheet state from BUG-005's duplicate creation. NOT retested in depth: plain highlight overlay rendering on reload (data-testid scheme for highlight overlays not yet exposed).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Add Reflection from post-action sheet (BUG-005)",
+        "issue": "STILL BROKEN. Reader.jsx line 578: `onClick={() => saveHighlight(true)}` is unconditional. It must branch like vocab-save at line 603: `onClick={() => (postCreateHighlight ? saveReflectionOnExisting() : saveHighlight(true))}`. Live repro: GET /api/books/{id}/highlights returned 2 entries with identical text 'Reading is a quiet conversation across time.' — hl_fdd702963525 (no thoughts) created by action-highlight; hl_54139901d343 (with the reflection) created by thought-save's saveHighlight(true). Expected count=1 with thoughts attached to the original highlight.",
+        "affected_selectors": ["[data-testid='thought-save']"],
+        "priority": "HIGH"
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_cosift_api.py"
+  ],
+  "action_items": [
+    "ONE-LINE FIX: Change Reader.jsx line 578 from `onClick={() => saveHighlight(true)}` to `onClick={() => (postCreateHighlight ? saveReflectionOnExisting() : saveHighlight(true))}`. The post-add-reflection button no longer clears postCreateHighlight (verified at lines 502-507), and saveReflectionOnExisting() (line 222) is fully implemented and tested at the backend level (POST /api/highlights/{id}/thoughts passes 23/23 pytest). The handler simply needs to be wired.",
+    "After the fix, retest the Add Reflection flow: drag-select → action-highlight (count=1) → post-add-reflection → fill thought → thought-save → assert highlights count stays at 1, and the original highlight's thoughts[] has length 1.",
+    "GET /api/books/{id}/highlights returns an object `{highlights:[...], max_page_reached:N}` — not a bare array. Confirm consumers and test scripts use `data.highlights` (the frontend's refreshHighlights already does this correctly)."
+  ],
+  "critical_code_review_comments": [
+    "Reader.jsx line 578 thought-save handler was the entire focus of this iteration's fix per the review request, but the change was never made. The review request stated 'thought-save / vocab-save handlers branch on postCreateHighlight presence (already correct from prior iteration)' — this is FALSE for thought-save. vocab-save at line 603 IS correctly branched.",
+    "Now that lines 502-507 keep postCreateHighlight set, BUG-005's fix is literally one line away — only the thought-save handler needs to be ternary-wrapped.",
+    "Recommend adding a frontend e2e test that asserts highlight count invariance across the Add Reflection flow to prevent this regression from re-appearing."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (23/23 from prior iteration, not re-run as per instructions)",
+    "frontend": "50% — Save Word flow correctly branches and does not duplicate; Start Discussion was not fully verified this run due to test flow blockage; Add Reflection (the primary retest target) STILL fails."
+  },
+  "test_credentials": "Anonymous session created during this run: token j7SGzoTzD1AKxlGRGq3sk9z2dKlRrIWa9YzKjk3yhCY (browser-side), book_id bk_f1b90238172e. PDF generated with reportlab containing the 3-line test passage at /tmp/test_real.pdf.",
+  "seed_data_creation": "Generated /tmp/test_real.pdf (1478 bytes) via reportlab and uploaded; created anon user TEST_PW_v4_fresh_browser. Two duplicate highlights of the same text now exist in book bk_f1b90238172e (evidence of BUG-005 persisting).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Once main agent applies the one-line fix to Reader.jsx line 578, the retest is trivial: reuse the reportlab PDF approach from this iteration. Important quirk: GET /api/books/{id}/highlights returns an OBJECT not array — use response.highlights.length to count. The selection-toolbar continues to work reliably via the Range API + dispatch('selectionchange') technique. For each subsequent test action within the same session, fully dismiss the post-action-sheet (press Escape or click overlay) before the next drag-select, otherwise the leftover state suppresses the toolbar.",
+  "rca_of_the_issue": "BUG-005 root cause confirmed (was correctly diagnosed in iteration 3): Reader.jsx line 578 thought-save button's onClick handler unconditionally invokes saveHighlight(true), which POSTs a brand-new row to /api/highlights. This iteration's code changes correctly stopped clearing postCreateHighlight in the post-add-reflection button (lines 502-507) and the post-save-word button (lines 540-555), AND the saveReflectionOnExisting() helper (line 222) is well-formed. But the missing piece — branching the thought-save click handler — was not applied. Live evidence: GET /api/books/bk_f1b90238172e/highlights showed 2 rows: hl_fdd702963525 (text only) and hl_54139901d343 (with thoughts[].text='A quiet note about reading.'). The expected outcome was a single highlight with thoughts attached. Mitigation: a single-line change at Reader.jsx:578 — wrap with the same ternary already in use at line 603 for vocab-save."
+}

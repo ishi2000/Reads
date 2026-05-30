@@ -502,7 +502,8 @@ export default function Reader() {
               <button
                 onClick={() => {
                   setSelectionText(postCreateHighlight.text);
-                  setPostCreateHighlight(null);
+                  // KEEP postCreateHighlight set — saveReflectionOnExisting()
+                  // needs it to attach to the existing highlight (BUG-005).
                   setThoughtSheet(true);
                 }}
                 data-testid="post-add-reflection"
@@ -540,7 +541,7 @@ export default function Reader() {
               <button
                 onClick={() => {
                   setSelectionText(postCreateHighlight.text);
-                  setPostCreateHighlight(null);
+                  // KEEP postCreateHighlight set — saveVocabFromPost() reads it.
                   setVocabSheet(true);
                 }}
                 data-testid="post-save-word"
