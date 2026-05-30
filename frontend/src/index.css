@@ -74,10 +74,28 @@ body {
   height: 0;
 }
 
-/* Text selection should feel like a highlighter */
+/* Text selection should feel like a highlighter.
+   IMPORTANT (BUG-004 regression-guard): do NOT set `color` here.
+   react-pdf renders text via a transparent text-layer over the canvas;
+   forcing a `color` on ::selection makes that layer's text become visible
+   and produces duplicate/bold-looking highlighted text. Keep selection
+   background-only. */
 ::selection {
   background: var(--terracotta-tint);
-  color: var(--ink);
+}
+
+/* Keep react-pdf text layer truly transparent even during selection */
+.react-pdf__Page__textContent,
+.react-pdf__Page__textContent span,
+.react-pdf__Page__textContent br {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.react-pdf__Page__textContent ::selection,
+.react-pdf__Page__textContent span::selection {
+  background: var(--terracotta-tint);
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 /* PDF rendering */

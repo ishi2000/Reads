@@ -51,4 +51,6 @@ This list captures the failure modes already fixed. Any future change must NOT r
 | R-4 | MongoDB `_id` leaking into API responses | All endpoints in `/app/backend/server.py` | Every `.find()` / `.find_one()` uses `{"_id": 0}` projection. New endpoints must do the same. |
 | R-5 | Unlocking rule bypassed | `/api/books/{id}/highlights`, `/api/turns`, `/api/saved-insights` | Server must filter by `page <= max_page_reached` for the viewing user. Never trust the client. |
 | R-6 | OAuth redirect URL hardcoded | `/app/frontend/src/lib/auth.jsx` (`startGoogleLogin`) | Must derive redirect from `window.location.origin`. No fallbacks, no `||`, no env-variable URLs. |
+| R-7 | PDF selection re-introduces visible text-layer color (BUG-004) | `/app/frontend/src/index.css` | `::selection` must NOT set `color`. The `.react-pdf__Page__textContent` rules must keep text-layer text transparent at all times, including during selection. |
+| R-7 | PDF selection re-introduces visible text-layer color (BUG-004) | `/app/frontend/src/index.css` | `::selection` must NOT set `color`. The `.react-pdf__Page__textContent` rules must keep text-layer text transparent at all times, including during selection. |
 

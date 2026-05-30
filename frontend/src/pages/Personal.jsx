@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import MobileShell from "../components/MobileShell";
 import BottomTabBar from "../components/BottomTabBar";
 import { api } from "../lib/api";
-import { useAuth } from "../lib/auth";
+import { useAuth, isGuest } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
+import GuestBanner from "../components/GuestBanner";
+import UpgradeSheet from "../components/UpgradeSheet";
 
 export default function Personal() {
   const { user, logout } = useAuth();
@@ -12,6 +14,8 @@ export default function Personal() {
   const [thoughts, setThoughts] = useState([]);
   const [vocab, setVocab] = useState([]);
   const [insights, setInsights] = useState([]);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const guest = isGuest(user);
 
   useEffect(() => {
     api.get("/my-thoughts").then((r) => setThoughts(r.data || []));
@@ -20,9 +24,9 @@ export default function Personal() {
   }, []);
 
   const tabs = [
-    { id: "thoughts", label: "My Thoughts" },
-    { id: "vocabulary", label: "Vocabulary" },
-    { id: "insights", label: "Saved" },
+    { id: "thoughts", label: "Reflections" },
+    { id: "vocabulary", label: "Saved Words" },
+    { id: "insights", label: "Insights" },
   ];
 
   return (
@@ -34,6 +38,16 @@ export default function Personal() {
         <h1 className="font-serif text-[40px] leading-[1.05] tracking-tight mt-1">
           {user?.name || "Reader"}
         </h1>
+
+        {guest && (
+          <div className="-mx-6">
+            <GuestBanner
+              visible
+              context="reflections, words and progress"
+              onUpgrade={() => setUpgradeOpen(true)}
+            />
+          </div>
+        )}
 
         <div className="mt-6 flex gap-1 bg-white border border-[#EAE6E1] rounded-full p-1">
           {tabs.map((t) => (
@@ -54,7 +68,7 @@ export default function Personal() {
           <div className="mt-6 flex flex-col gap-3">
             {thoughts.length === 0 && (
               <p className="text-center text-[#A8A5A1] font-serif italic mt-12">
-                Your margin notes will appear here.
+                Your reflections will appear here.
               </p>
             )}
             {thoughts.map((h) => (
@@ -134,10 +148,25 @@ export default function Personal() {
           data-testid="personal-logout"
           className="mt-10 w-full text-sm text-[#A8A5A1] hover:text-[#787571]"
         >
-          Sign out
+          {guest ? "Reset device session" : "Sign out"}
         </button>
+        {guest && (
+          <button
+            onClick={() => setUpgradeOpen(true)}
+            data-testid="personal-create-account"
+            className="mt-3 w-full text-sm text-[#C86A58] hover:text-[#B35A4A] font-medium"
+          >
+            Create an account to sync
+          </button>
+        )}
       </div>
       <BottomTabBar />
+      <UpgradeSheet
+        open={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        returnPath="/app/personal"
+        context="your reflections, saved words and reading"
+      />
     </MobileShell>
   );
 }

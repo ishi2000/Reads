@@ -18,6 +18,10 @@ export default function Landing() {
     if (user) navigate("/create-solo");
     else startGoogleLogin("/create-solo");
   };
+  const signIn = () => {
+    if (user) navigate("/app/reads");
+    else startGoogleLogin("/app/reads");
+  };
 
   return (
     <MobileShell>
@@ -82,6 +86,18 @@ export default function Landing() {
             className="w-full text-[#787571] hover:text-[#2C2A29] rounded-full py-4 text-base font-medium transition-colors text-center"
           >
             Start a Solo Session
+          </button>
+          <div className="mt-4 flex items-center gap-3 text-xs text-[#A8A5A1]">
+            <div className="flex-1 h-px bg-[#EAE6E1]" />
+            <span className="tracking-[0.18em] uppercase">Returning?</span>
+            <div className="flex-1 h-px bg-[#EAE6E1]" />
+          </div>
+          <button
+            onClick={signIn}
+            data-testid="cta-sign-in"
+            className="w-full bg-[#2C2A29] hover:bg-[#1f1d1c] text-white rounded-full py-4 text-base font-medium transition-colors text-center"
+          >
+            Sign In
           </button>
         </motion.div>
 

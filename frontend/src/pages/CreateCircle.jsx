@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import MobileShell from "../components/MobileShell";
+import ShareCard from "../components/ShareCard";
 import { ArrowLeft, Upload, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,10 +15,13 @@ export default function CreateCircle() {
   const [description, setDescription] = useState("");
   const [circleId, setCircleId] = useState(null);
   const [bookTitle, setBookTitle] = useState("");
+  const [bookId, setBookId] = useState(null);
+  const [memberCount, setMemberCount] = useState(1);
   const [file, setFile] = useState(null);
   const [inviteCode, setInviteCode] = useState(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [shareCardOpen, setShareCardOpen] = useState(false);
 
   if (!user) {
     navigate("/", { replace: true });
@@ -47,9 +51,14 @@ export default function CreateCircle() {
       fd.append("circle_id", circleId);
       fd.append("mode", "circle");
       fd.append("file", file);
-      await api.post("/books", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data: bk } = await api.post("/books", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      setBookId(bk.book_id);
       const { data } = await api.post(`/circles/${circleId}/invite`);
       setInviteCode(data.code);
+      try {
+        const { data: circle } = await api.get(`/circles/${circleId}`);
+        setMemberCount(circle?.members?.length || 1);
+      } catch {}
       setStep(3);
     } catch (e) {
       toast.error("Upload failed");
@@ -98,15 +107,9 @@ export default function CreateCircle() {
   };
 
   const share = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: "Read together on Cosift", url: inviteUrl });
-        return;
-      } catch {
-        // user cancelled or share blocked — fall through to copy
-      }
-    }
-    await copyInvite();
+    // Opens the rich ShareCard composer; that component handles Web Share API,
+    // clipboard image fallback, and download fallback for restricted contexts.
+    setShareCardOpen(true);
   };
 
   return (
@@ -267,6 +270,15 @@ export default function CreateCircle() {
           </>
         )}
       </div>
+      <ShareCard
+        open={shareCardOpen}
+        onClose={() => setShareCardOpen(false)}
+        circleName={name}
+        bookTitle={bookTitle}
+        memberCount={memberCount}
+        inviteUrl={inviteUrl}
+        bookId={bookId}
+      />
     </MobileShell>
   );
 }

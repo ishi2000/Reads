@@ -50,3 +50,14 @@ export function startGoogleLogin(returnPath = "/app/reads") {
   const redirectUrl = window.location.origin + returnPath;
   window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
 }
+
+// Apple & Email OTP are placeholders for v1.1 — Emergent OAuth currently routes through Google
+// only. We surface the buttons (per spec) but flag them as coming-soon so we don't pretend.
+export function signInApple() {
+  return { status: "coming_soon", message: "Apple sign-in is coming soon." };
+}
+export function requestEmailOtp() {
+  return { status: "coming_soon", message: "Email OTP is coming soon." };
+}
+
+export const isGuest = (user) => !!user && user.anonymous === true;

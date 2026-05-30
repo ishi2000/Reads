@@ -3,13 +3,15 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
-import { ChevronLeft, ChevronRight, Highlighter, MessageSquare, BookmarkPlus, ArrowLeft, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Highlighter, MessageSquare, BookmarkPlus, ArrowLeft, Lock, Share2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../lib/api";
-import { useAuth } from "../lib/auth";
+import { useAuth, isGuest } from "../lib/auth";
 import BottomSheet from "../components/BottomSheet";
 import LockedInsightCard from "../components/LockedInsightCard";
 import ActivityBanner from "../components/ActivityBanner";
+import GuestBanner from "../components/GuestBanner";
+import UpgradeSheet from "../components/UpgradeSheet";
 import { toast } from "sonner";
 
 // PDF.js worker — served locally from public/ to guarantee the worker version matches
@@ -29,9 +31,12 @@ export default function Reader() {
   const [page, setPage] = useState(parseInt(params.get("page") || "1", 10));
   const [pageWidth, setPageWidth] = useState(360);
   const [selectionText, setSelectionText] = useState("");
+  const [postCreateHighlight, setPostCreateHighlight] = useState(null); // highlight obj for post-action menu
   const [actionSheet, setActionSheet] = useState(false);
   const [thoughtSheet, setThoughtSheet] = useState(false);
   const [vocabSheet, setVocabSheet] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const [thoughtText, setThoughtText] = useState("");
   const [vocabMeaning, setVocabMeaning] = useState("");
   const [highlights, setHighlights] = useState([]);
@@ -83,14 +88,18 @@ export default function Reader() {
     }).then(() => refreshHighlights());
   }, [page, numPages]);
 
-  // Selection handler
+  // Selection handler — defer reading getSelection() until the browser has
+  // committed the selection (otherwise some browsers / touch contexts still
+  // report an empty range at the moment mouseup fires).
   const handleMouseUp = () => {
-    const sel = window.getSelection?.();
-    const text = sel ? sel.toString().trim() : "";
-    if (text && text.length > 2) {
-      setSelectionText(text);
-      setActionSheet(true);
-    }
+    setTimeout(() => {
+      const sel = window.getSelection?.();
+      const text = sel ? sel.toString().trim() : "";
+      if (text && text.length > 2) {
+        setSelectionText(text);
+        setActionSheet(true);
+      }
+    }, 30);
   };
 
   // Subtle activity banner when new highlights arrive on current page
@@ -110,22 +119,45 @@ export default function Reader() {
     }
   }, [page, highlightsOnPage.length]);
 
+  const guest = isGuest(user);
+
+  // After a guest creates an annotation, nudge them once toward sign-up.
+  const remindGuest = (kind = "insight") => {
+    if (!guest) return;
+    toast.message(
+      `Your ${kind} is stored temporarily on this device.`,
+      {
+        description: "Create an account to sync and never lose your insights.",
+        action: { label: "Save", onClick: () => setUpgradeOpen(true) },
+        duration: 5500,
+      },
+    );
+  };
+
   // Actions
   const saveHighlight = async (withThought = false) => {
     if (!selectionText) return;
     try {
-      await api.post("/highlights", {
+      const { data } = await api.post("/highlights", {
         book_id: bookId,
         page,
         text: selectionText,
         thought: withThought ? thoughtText : "",
       });
-      toast.success(withThought ? "Thought saved" : "Highlighted");
+      if (withThought) {
+        toast.success("Reflection saved");
+      } else {
+        toast.success("Highlighted");
+      }
+      const created = { ...data, thoughts: withThought ? [{ text: thoughtText, user_name: user?.name }] : [] };
       setSelectionText("");
       setThoughtText("");
       setActionSheet(false);
       setThoughtSheet(false);
       refreshHighlights();
+      // Show the post-create action menu so they can add Reflection / Discussion / Save Word
+      setPostCreateHighlight(created);
+      remindGuest(withThought ? "reflection" : "highlight");
     } catch {
       toast.error("Could not save");
     }
@@ -140,11 +172,12 @@ export default function Reader() {
         meaning: vocabMeaning,
         page,
       });
-      toast.success("Saved to vocabulary");
+      toast.success("Saved to your words");
       setSelectionText("");
       setVocabMeaning("");
       setVocabSheet(false);
       setActionSheet(false);
+      remindGuest("saved word");
     } catch {
       toast.error("Could not save");
     }
@@ -170,9 +203,29 @@ export default function Reader() {
       const { data } = await api.get(`/highlights/${activeHighlight.highlight_id}/threads`);
       setThreadReplies(data || []);
       refreshHighlights();
+      remindGuest("reply");
     } catch {
       toast.error("Could not reply");
     }
+  };
+
+  const shareSelection = async () => {
+    const url = `${window.location.origin}/read/${bookId}?page=${page}`;
+    const text = `“${selectionText}”\n— ${book.title}, p. ${page}\n\n${url}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: book.title, text });
+        return;
+      }
+    } catch { /* user dismissed */ }
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        toast.success("Passage copied to clipboard");
+        return;
+      }
+    } catch { /* fall through */ }
+    toast.message("Long-press the passage to copy it.");
   };
 
   if (!book) {
@@ -227,6 +280,17 @@ export default function Reader() {
         onTouchEnd={handleMouseUp}
       >
         <ActivityBanner message={banner} visible={!!banner} />
+
+        {guest && !bannerDismissed && (
+          <div className="-mx-4 mb-2">
+            <GuestBanner
+              visible
+              context="highlights and reading"
+              onUpgrade={() => setUpgradeOpen(true)}
+              onDismiss={() => setBannerDismissed(true)}
+            />
+          </div>
+        )}
 
         <Document
           file={pdfUrl}
@@ -308,9 +372,9 @@ export default function Reader() {
         </div>
       </div>
 
-      {/* Floating selection toolbar */}
+      {/* Floating selection toolbar — primary actions: Highlight + Share */}
       <AnimatePresence>
-        {selectionText && !actionSheet && !thoughtSheet && !vocabSheet && (
+        {selectionText && !actionSheet && !thoughtSheet && !vocabSheet && !postCreateHighlight && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -326,35 +390,99 @@ export default function Reader() {
                 <Highlighter className="w-4 h-4" />
                 <span className="text-sm">Highlight</span>
               </button>
+              <div className="w-px h-5 bg-white/15" />
               <button
-                onClick={() => {
-                  setActionSheet(false);
-                  setThoughtSheet(true);
-                }}
-                data-testid="action-thought"
+                onClick={shareSelection}
+                data-testid="action-share"
                 className="flex-1 flex items-center justify-center gap-2 py-2 px-3 hover:bg-white/10 rounded-full"
               >
-                <MessageSquare className="w-4 h-4" />
-                <span className="text-sm">Thought</span>
-              </button>
-              <button
-                onClick={() => setVocabSheet(true)}
-                data-testid="action-vocab"
-                className="flex-1 flex items-center justify-center gap-2 py-2 px-3 hover:bg-white/10 rounded-full"
-              >
-                <BookmarkPlus className="w-4 h-4" />
-                <span className="text-sm">Vocab</span>
+                <Share2 className="w-4 h-4" />
+                <span className="text-sm">Share</span>
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Thought sheet */}
+      {/* Post-create action sheet: Add Reflection / Start Discussion / Save Word */}
+      <BottomSheet
+        open={!!postCreateHighlight}
+        onClose={() => {
+          setPostCreateHighlight(null);
+          setSelectionText("");
+        }}
+        title="What next?"
+        testid="post-action-sheet"
+      >
+        {postCreateHighlight && (
+          <>
+            <p className="font-serif italic text-[#2C2A29] text-lg leading-snug">
+              &ldquo;{postCreateHighlight.text}&rdquo;
+            </p>
+            <div className="mt-6 flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  setSelectionText(postCreateHighlight.text);
+                  setPostCreateHighlight(null);
+                  setThoughtSheet(true);
+                }}
+                data-testid="post-add-reflection"
+                className="w-full flex items-center gap-3 bg-white border border-[#EAE6E1] hover:border-[#C86A58]/40 rounded-2xl p-4 text-left"
+              >
+                <MessageSquare strokeWidth={1.5} className="w-5 h-5 text-[#C86A58]" />
+                <div>
+                  <div className="font-serif text-lg text-[#2C2A29]">Add Reflection</div>
+                  <div className="text-xs text-[#787571]">Capture a personal margin note.</div>
+                </div>
+              </button>
+              <button
+                onClick={async () => {
+                  // Open this highlight's discussion thread
+                  const hl = postCreateHighlight;
+                  setPostCreateHighlight(null);
+                  setSelectionText("");
+                  setActiveHighlight(hl);
+                  try {
+                    const { data } = await api.get(`/highlights/${hl.highlight_id}/threads`);
+                    setThreadReplies(data || []);
+                  } catch {
+                    setThreadReplies([]);
+                  }
+                }}
+                data-testid="post-start-discussion"
+                className="w-full flex items-center gap-3 bg-white border border-[#EAE6E1] hover:border-[#C86A58]/40 rounded-2xl p-4 text-left"
+              >
+                <Share2 strokeWidth={1.5} className="w-5 h-5 text-[#C86A58]" />
+                <div>
+                  <div className="font-serif text-lg text-[#2C2A29]">Start Discussion</div>
+                  <div className="text-xs text-[#787571]">Invite quiet replies from your circle.</div>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  setSelectionText(postCreateHighlight.text);
+                  setPostCreateHighlight(null);
+                  setVocabSheet(true);
+                }}
+                data-testid="post-save-word"
+                className="w-full flex items-center gap-3 bg-white border border-[#EAE6E1] hover:border-[#C86A58]/40 rounded-2xl p-4 text-left"
+              >
+                <BookmarkPlus strokeWidth={1.5} className="w-5 h-5 text-[#C86A58]" />
+                <div>
+                  <div className="font-serif text-lg text-[#2C2A29]">Save Word</div>
+                  <div className="text-xs text-[#787571]">Keep it for your vocabulary.</div>
+                </div>
+              </button>
+            </div>
+          </>
+        )}
+      </BottomSheet>
+
+      {/* Reflection sheet */}
       <BottomSheet
         open={thoughtSheet}
         onClose={() => setThoughtSheet(false)}
-        title="Add a thought"
+        title="Add a reflection"
         testid="thought-sheet"
       >
         <p className="font-serif italic text-[#787571] text-lg">&ldquo;{selectionText}&rdquo;</p>
@@ -371,15 +499,15 @@ export default function Reader() {
           data-testid="thought-save"
           className="mt-4 w-full bg-[#C86A58] hover:bg-[#B35A4A] text-white rounded-full py-3 font-medium"
         >
-          Save thought
+          Save reflection
         </button>
       </BottomSheet>
 
-      {/* Vocab sheet */}
+      {/* Saved Word sheet */}
       <BottomSheet
         open={vocabSheet}
         onClose={() => setVocabSheet(false)}
-        title="Add to vocabulary"
+        title="Save a word"
         testid="vocab-sheet"
       >
         <p className="font-serif text-2xl text-[#2C2A29]">{selectionText}</p>
@@ -400,11 +528,11 @@ export default function Reader() {
         </button>
       </BottomSheet>
 
-      {/* Thread sheet */}
+      {/* Discussion sheet (was: Thread) */}
       <BottomSheet
         open={!!activeHighlight}
         onClose={() => setActiveHighlight(null)}
-        title="In the margins"
+        title="Discussion"
         testid="thread-sheet"
       >
         {activeHighlight && (
@@ -449,6 +577,13 @@ export default function Reader() {
           </>
         )}
       </BottomSheet>
+
+      <UpgradeSheet
+        open={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        returnPath={`/read/${bookId}`}
+        context="your highlights, reflections and reading progress"
+      />
     </div>
   );
 }
