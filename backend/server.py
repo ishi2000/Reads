@@ -448,6 +448,33 @@ async def locked_count(book_id: str, user: Dict = Depends(get_current_user)):
     return {"locked": locked}
 
 
+@api.post("/highlights/{highlight_id}/thoughts")
+async def add_thought(highlight_id: str, body: ThoughtCreate, user: Dict = Depends(get_current_user)):
+    """Attach a reflection (thought) to an EXISTING highlight.
+
+    Distinct from POST /highlights (which creates a brand-new highlight,
+    optionally with a thought baked in). This endpoint exists so the
+    'Add Reflection' post-create action can attach to the highlight the
+    user just made — without re-creating a duplicate row.
+    """
+    hl = await db.highlights.find_one({"highlight_id": highlight_id}, {"_id": 0})
+    if not hl:
+        raise HTTPException(404, "Highlight not found")
+    doc = {
+        "thought_id": new_id("th"),
+        "highlight_id": highlight_id,
+        "book_id": hl["book_id"],
+        "page": hl["page"],
+        "text": body.text,
+        "user_id": user["user_id"],
+        "user_name": user["name"],
+        "created_at": now_iso(),
+    }
+    await db.thoughts.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
 @api.post("/highlights/{highlight_id}/threads")
 async def reply_thread(highlight_id: str, body: ThreadReplyCreate, user: Dict = Depends(get_current_user)):
     hl = await db.highlights.find_one({"highlight_id": highlight_id}, {"_id": 0})

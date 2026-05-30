@@ -197,6 +197,55 @@ class TestHighlights:
         assert r.json()["locked"] >= 1  # Bob's hl@8 locked from Alice
 
 
+# ---------- Thoughts on existing highlight (BUG-005/006 regression guard) ----------
+class TestThoughtsOnHighlight:
+    def test_unauthenticated_rejected(self, book):
+        # Need a real highlight_id to hit the route; create one as Alice first via separate session
+        s = requests.Session()
+        s.post(f"{API}/auth/anonymous", json={"display_name": "TEST_Tmp_T"})
+        # use any string — unauth should 401 BEFORE we look up the highlight
+        r = requests.post(f"{API}/highlights/hl_doesnotexist/thoughts", json={"text": "x"})
+        assert r.status_code == 401
+
+    def test_add_thought_attaches_without_duplicating_highlight(self, session_a, book):
+        # Make sure the page is unlocked (use page 4 — stays under page 5 ceiling
+        # so the existing TestFeeds ordering assertion (all pages <= 5) still holds).
+        # Don't bump progress here; max_page is already 5 from TestProgress.
+        # Create a fresh highlight
+        hl = session_a.post(f"{API}/highlights", json={
+            "book_id": book["book_id"], "page": 4, "text": "Reflection target",
+        }).json()
+        hl_id = hl["highlight_id"]
+
+        # Count highlights for this user on this book BEFORE
+        before = session_a.get(f"{API}/books/{book['book_id']}/highlights").json()["highlights"]
+        before_count = len(before)
+        before_thought_count_for_hl = next(
+            (len(h["thoughts"]) for h in before if h["highlight_id"] == hl_id), 0
+        )
+
+        # POST reflection
+        r = session_a.post(f"{API}/highlights/{hl_id}/thoughts", json={"text": "TEST_my reflection text"})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["highlight_id"] == hl_id
+        assert body["text"] == "TEST_my reflection text"
+        assert body["thought_id"].startswith("th_")
+        assert body["book_id"] == book["book_id"]
+        assert body["page"] == 4
+
+        # Re-fetch highlights AFTER and verify (a) same count, (b) thought attached
+        after = session_a.get(f"{API}/books/{book['book_id']}/highlights").json()["highlights"]
+        assert len(after) == before_count, "POST /highlights/{id}/thoughts must NOT create a new highlight"
+        target = next(h for h in after if h["highlight_id"] == hl_id)
+        assert len(target["thoughts"]) == before_thought_count_for_hl + 1
+        assert any(t["text"] == "TEST_my reflection text" for t in target["thoughts"])
+
+    def test_thought_on_missing_highlight_returns_404(self, session_a):
+        r = session_a.post(f"{API}/highlights/hl_does_not_exist_xyz/thoughts", json={"text": "x"})
+        assert r.status_code == 404
+
+
 # ---------- Threads ----------
 class TestThreads:
     def test_create_and_list_thread(self, session_a, book):

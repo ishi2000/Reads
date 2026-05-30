@@ -4,6 +4,32 @@ Track of known/reported bugs with status. Newest first.
 
 ---
 
+## BUG-005: Reflection from post-action sheet creates a duplicate highlight
+- **Reported**: 2026-05-30 (P0 fixes round)
+- **Symptom**: After tapping **Highlight** then **Add Reflection**, the DB ends up with two highlight rows for the same passage — the original highlight + a second one with the reflection attached. Personal → Reflections shows both.
+- **Root cause**: Backend had only `POST /api/highlights` (which creates a NEW highlight, optionally with a `thought`). It lacked an endpoint to attach a reflection to an existing highlight. The frontend post-action handler called `POST /api/highlights` again with `thought=<reflection>` → duplicate row.
+- **Fix**:
+  - Backend: added `POST /api/highlights/{highlight_id}/thoughts` that inserts only into `thoughts`, tying to the existing highlight.
+  - Frontend: `saveReflectionOnExisting()` uses the new endpoint when the user is in the post-create flow. The "Save reflection" button branches on `postCreateHighlight` (existing highlight vs. fresh selection).
+  - Frontend: `saveHighlight(withThought=true)` no longer auto-opens the post-create sheet (the user already added a reflection).
+- **Files touched**: `/app/backend/server.py` (new endpoint near `reply_thread`); `/app/frontend/src/pages/Reader.jsx` (`saveReflectionOnExisting`, `saveVocabFromPost`, branched bottom-sheet save buttons, `saveHighlight` flow).
+- **Status**: ✅ Fixed and verified end-to-end via curl: 1 highlight + 1 attached thought + 1 thread + 1 vocab; Personal feed shows the single highlight with its reflection.
+
+---
+
+## BUG-006: PDF text selection unreliable across browsers / touch / keyboard
+- **Reported**: 2026-05-30 (P0 fixes round)
+- **Symptom**: Users selecting text in the PDF often see no floating Highlight/Share toolbar — the action menu fails to appear in mobile Safari, on Playwright synthetic mouse events, and on keyboard selections (`Shift+Arrow`).
+- **Root cause**: The Reader listened only to React `onMouseUp` / `onTouchEnd` on a container. Those handlers fire BEFORE the system commits the selection in some browsers, get swallowed by the native context menu on mobile, and never fire for keyboard-driven selections.
+- **Fix**: Replaced with a `document.addEventListener("selectionchange")` listener (debounced at 120 ms) that:
+  - Sets `selectionText` only if the anchor lives inside `.react-pdf__Page__textContent` (so toolbar doesn't pop on UI text).
+  - Resets `selectionText` only when no sheets are open (doesn't dismiss the user mid-edit).
+  - Backed up by the existing `onMouseUp`/`onTouchEnd` for an immediate re-check.
+- **Files touched**: `/app/frontend/src/pages/Reader.jsx`.
+- **Status**: ✅ Fixed.
+
+---
+
 ## BUG-002: Reader crashes when opening a book — "Failed to fetch dynamically imported module"
 - **Reported**: 2026-05-16 (user screenshot at `/read/bk_ac7787c0c9c6`)
 - **Symptom**: Uncaught `TypeError: Failed to fetch dynamically imported module: https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.296/pdf.worker.min.mjs`
@@ -52,5 +78,6 @@ This list captures the failure modes already fixed. Any future change must NOT r
 | R-5 | Unlocking rule bypassed | `/api/books/{id}/highlights`, `/api/turns`, `/api/saved-insights` | Server must filter by `page <= max_page_reached` for the viewing user. Never trust the client. |
 | R-6 | OAuth redirect URL hardcoded | `/app/frontend/src/lib/auth.jsx` (`startGoogleLogin`) | Must derive redirect from `window.location.origin`. No fallbacks, no `||`, no env-variable URLs. |
 | R-7 | PDF selection re-introduces visible text-layer color (BUG-004) | `/app/frontend/src/index.css` | `::selection` must NOT set `color`. The `.react-pdf__Page__textContent` rules must keep text-layer text transparent at all times, including during selection. |
-| R-7 | PDF selection re-introduces visible text-layer color (BUG-004) | `/app/frontend/src/index.css` | `::selection` must NOT set `color`. The `.react-pdf__Page__textContent` rules must keep text-layer text transparent at all times, including during selection. |
+| R-8 | Duplicate highlight when adding a reflection from the post-action sheet (BUG-005) | `/app/frontend/src/pages/Reader.jsx`, `/app/backend/server.py` | `POST /api/highlights/{id}/thoughts` must exist and the Reader must call it (NOT `POST /api/highlights` again) from `saveReflectionOnExisting`. After Highlight → Add Reflection, `GET /api/books/{id}/highlights` must return exactly 1 highlight row per user-created passage. |
+| R-9 | PDF selection toolbar misses some browsers / touch / keyboard (BUG-006) | `/app/frontend/src/pages/Reader.jsx` | The Reader MUST attach a `document.addEventListener("selectionchange")` listener (debounced) AND keep the legacy `onMouseUp`/`onTouchEnd` fallbacks. Do NOT remove either path. |
 

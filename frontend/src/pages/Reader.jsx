@@ -88,18 +88,53 @@ export default function Reader() {
     }).then(() => refreshHighlights());
   }, [page, numPages]);
 
-  // Selection handler — defer reading getSelection() until the browser has
-  // committed the selection (otherwise some browsers / touch contexts still
-  // report an empty range at the moment mouseup fires).
+  // Selection handler — listen to `selectionchange` on the document so we
+  // catch selections from mouse drags, touch drags, AND keyboard selections.
+  // We debounce so the toolbar only appears after the user stops adjusting
+  // their selection. On mouse/touch end we also re-check immediately because
+  // some browsers fire selectionchange BEFORE the final selection is committed.
+  useEffect(() => {
+    if (!book) return;
+    let debounce = null;
+    const readSelection = () => {
+      const sel = window.getSelection?.();
+      const text = sel ? sel.toString().trim() : "";
+      // Only react to selections that originate inside the PDF text layer.
+      const anchorNode = sel?.anchorNode;
+      const inPdf =
+        anchorNode &&
+        (anchorNode.nodeType === 1
+          ? anchorNode.closest?.(".react-pdf__Page__textContent")
+          : anchorNode.parentElement?.closest?.(".react-pdf__Page__textContent"));
+      if (text && text.length > 1 && inPdf) {
+        setSelectionText(text);
+      } else if (!text) {
+        // Selection collapsed — only close the floating toolbar (don't dismiss
+        // open bottom-sheets in the middle of editing a reflection/word).
+        if (!thoughtSheet && !vocabSheet && !postCreateHighlight && !activeHighlight) {
+          setSelectionText("");
+        }
+      }
+    };
+    const onChange = () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(readSelection, 120);
+    };
+    document.addEventListener("selectionchange", onChange);
+    return () => {
+      document.removeEventListener("selectionchange", onChange);
+      clearTimeout(debounce);
+    };
+  }, [book, thoughtSheet, vocabSheet, postCreateHighlight, activeHighlight]);
+
+  // Kept for backward-compatibility with the existing JSX (PDF area still
+  // listens to mouseUp/touchEnd as a hint to re-read selection immediately).
   const handleMouseUp = () => {
     setTimeout(() => {
       const sel = window.getSelection?.();
       const text = sel ? sel.toString().trim() : "";
-      if (text && text.length > 2) {
-        setSelectionText(text);
-        setActionSheet(true);
-      }
-    }, 30);
+      if (text && text.length > 1) setSelectionText(text);
+    }, 60);
   };
 
   // Subtle activity banner when new highlights arrive on current page
@@ -144,19 +179,19 @@ export default function Reader() {
         text: selectionText,
         thought: withThought ? thoughtText : "",
       });
-      if (withThought) {
-        toast.success("Reflection saved");
-      } else {
-        toast.success("Highlighted");
-      }
-      const created = { ...data, thoughts: withThought ? [{ text: thoughtText, user_name: user?.name }] : [] };
-      setSelectionText("");
+      toast.success(withThought ? "Reflection saved" : "Highlighted");
       setThoughtText("");
       setActionSheet(false);
       setThoughtSheet(false);
+      // Only open the post-create sheet for a plain highlight tap. If the
+      // user already added a reflection during creation, there's no follow-up.
+      if (!withThought) {
+        const created = { ...data, thoughts: [] };
+        setPostCreateHighlight(created);
+      } else {
+        setSelectionText("");
+      }
       refreshHighlights();
-      // Show the post-create action menu so they can add Reflection / Discussion / Save Word
-      setPostCreateHighlight(created);
       remindGuest(withThought ? "reflection" : "highlight");
     } catch {
       toast.error("Could not save");
@@ -177,6 +212,50 @@ export default function Reader() {
       setVocabMeaning("");
       setVocabSheet(false);
       setActionSheet(false);
+      remindGuest("saved word");
+    } catch {
+      toast.error("Could not save");
+    }
+  };
+
+  // Save a reflection onto an EXISTING highlight (no duplicate row created).
+  const saveReflectionOnExisting = async () => {
+    if (!postCreateHighlight || !thoughtText.trim()) {
+      setThoughtSheet(false);
+      return;
+    }
+    try {
+      await api.post(`/highlights/${postCreateHighlight.highlight_id}/thoughts`, {
+        text: thoughtText.trim(),
+      });
+      toast.success("Reflection saved");
+      setThoughtText("");
+      setThoughtSheet(false);
+      setPostCreateHighlight(null);
+      setSelectionText("");
+      refreshHighlights();
+      remindGuest("reflection");
+    } catch {
+      toast.error("Could not save reflection");
+    }
+  };
+
+  // Save a word to vocabulary tied to the highlighted passage (no duplicate
+  // highlight created — vocabulary lives in its own collection).
+  const saveVocabFromPost = async () => {
+    if (!postCreateHighlight) return saveVocab();
+    try {
+      await api.post("/vocabulary", {
+        book_id: bookId,
+        word: postCreateHighlight.text,
+        meaning: vocabMeaning,
+        page: postCreateHighlight.page,
+      });
+      toast.success("Saved to your words");
+      setVocabMeaning("");
+      setVocabSheet(false);
+      setPostCreateHighlight(null);
+      setSelectionText("");
       remindGuest("saved word");
     } catch {
       toast.error("Could not save");
@@ -520,7 +599,7 @@ export default function Reader() {
           data-testid="vocab-input"
         />
         <button
-          onClick={saveVocab}
+          onClick={() => (postCreateHighlight ? saveVocabFromPost() : saveVocab())}
           data-testid="vocab-save"
           className="mt-4 w-full bg-[#C86A58] hover:bg-[#B35A4A] text-white rounded-full py-3 font-medium"
         >
