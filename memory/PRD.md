@@ -48,6 +48,26 @@ media. **Tagline:** _Sift meaning from what you read, together._
 - Reader (`/read/:bookId`) with PDF rendering, text-selection toolbar, thought sheet, vocab sheet,
   threaded highlight sheet, page nav, activity banner, locked-insight card
 
+## Incremental Update v1.1 (2026-05-30)
+### New behaviours
+- **Sign In** CTA on the Landing page for returning users — single tap to /app/reads via Emergent Google OAuth.
+- **Guest → Account upgrade path**: persistent GuestBanner ("Save your highlights and reading across devices. Stored only on this device for now.") on Reader & Personal screens; UpgradeSheet with Continue with Google / Apple (coming soon) / Email OTP (coming soon).
+- **Post-create action menu** on the PDF reader: after a highlight is saved, a bottom sheet offers Add Reflection, Start Discussion, Save Word.
+- **Pre-create toolbar** simplified to Highlight + Share (was Highlight + Thought + Vocab).
+- **Renamed labels** (UI only, backend internals unchanged): Thought → Reflection, Thread → Discussion, Vocabulary Bank → Saved Words.
+- **Stored-temporarily nudges**: every guest save (highlight / reflection / vocab / reply) emits a Sonner toast inviting account creation, with a one-tap "Save" action that opens the UpgradeSheet.
+- **Beautiful share card** for circles: html-to-image-rendered PNG (book cover + circle name + reader count + "Read with me on Cosift"), shared via `navigator.share({files})` with clipboard-image + image-download fallbacks.
+
+### Bug fixes
+- **BUG-004**: PDF text highlight no longer appears doubled / bold during selection — `::selection` no longer carries a `color`, and `.react-pdf__Page__textContent` is force-transparent during selection.
+- **BUG-003**: Clipboard API blocked in preview iframes no longer crashes — execCommand fallback + auto-select on tap.
+
+### Files added in v1.1
+- `/app/frontend/src/components/UpgradeSheet.jsx`
+- `/app/frontend/src/components/GuestBanner.jsx`
+- `/app/frontend/src/components/ShareCard.jsx`
+- `/app/memory/BUGS.md` (with regression-guard table R-1 … R-7)
+
 ### Testing
 - 20/20 pytest cases pass on backend (`/app/backend/tests/test_cosift_api.py`)
 - Frontend smoke: anonymous invite-join flow validated

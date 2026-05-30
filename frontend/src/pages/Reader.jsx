@@ -582,7 +582,6 @@ export default function Reader() {
         open={upgradeOpen}
         onClose={() => setUpgradeOpen(false)}
         returnPath={`/read/${bookId}`}
-        context="your highlights, reflections and reading progress"
       />
     </div>
   );

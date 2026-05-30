@@ -165,7 +165,6 @@ export default function Personal() {
         open={upgradeOpen}
         onClose={() => setUpgradeOpen(false)}
         returnPath="/app/personal"
-        context="your reflections, saved words and reading"
       />
     </MobileShell>
   );

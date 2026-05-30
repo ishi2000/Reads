@@ -15,12 +15,13 @@ import { toast } from "sonner";
  *  - context: short string used inside the headline (e.g. "your highlights",
  *             "your reflections", "your reading")
  */
-export default function UpgradeSheet({ open, onClose, returnPath = "/app/reads", context = "your insights" }) {
+export default function UpgradeSheet({ open, onClose, returnPath = "/app/reads", context }) {
   return (
     <BottomSheet open={open} onClose={onClose} title="Save your reading" testid="upgrade-sheet">
       <p className="text-[#787571] text-base font-sans leading-relaxed">
-        Create an account to save {context}, highlights, reflections, saved words, and reading
-        progress across devices.
+        {context
+          ? `Create an account to keep ${context} safe and synced across every device you read on.`
+          : "Create an account to keep your highlights, reflections, saved words and reading progress safe and synced across every device."}
       </p>
 
       <div className="mt-6 flex flex-col gap-3">
