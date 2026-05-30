@@ -13,7 +13,8 @@ Track of known/reported bugs with status. Newest first.
   - Frontend: `saveReflectionOnExisting()` uses the new endpoint when the user is in the post-create flow. The "Save reflection" button branches on `postCreateHighlight` (existing highlight vs. fresh selection).
   - Frontend: `saveHighlight(withThought=true)` no longer auto-opens the post-create sheet (the user already added a reflection).
 - **Files touched**: `/app/backend/server.py` (new endpoint near `reply_thread`); `/app/frontend/src/pages/Reader.jsx` (`saveReflectionOnExisting`, `saveVocabFromPost`, branched bottom-sheet save buttons, `saveHighlight` flow).
-- **Status**: ✅ Fixed and verified end-to-end via curl: 1 highlight + 1 attached thought + 1 thread + 1 vocab; Personal feed shows the single highlight with its reflection.
+- **Status**: ✅ Fixed and verified end-to-end in-browser. Reproduction: drag-select text → Highlight → Add Reflection → fill thought → Save. Result: `GET /api/books/{id}/highlights` returns `count=1, thoughts=1`. Personal → Reflections shows the single nested reflection.
+- **Why it didn't work the first time**: A second one-line bug masked the root fix — the "Add Reflection" post-action button cleared `postCreateHighlight` before opening the thought sheet, so when the Save button branched on `postCreateHighlight`, the reference was already gone. Removing the premature reset + branching the Save button = full fix.
 
 ---
 

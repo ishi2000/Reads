@@ -575,7 +575,7 @@ export default function Reader() {
           data-testid="thought-input"
         />
         <button
-          onClick={() => saveHighlight(true)}
+          onClick={() => (postCreateHighlight ? saveReflectionOnExisting() : saveHighlight(true))}
           data-testid="thought-save"
           className="mt-4 w-full bg-[#C86A58] hover:bg-[#B35A4A] text-white rounded-full py-3 font-medium"
         >
