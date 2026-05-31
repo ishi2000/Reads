@@ -137,22 +137,28 @@ export default function Reader() {
     }, 60);
   };
 
-  // Subtle activity banner when new highlights arrive on current page
+  // All highlights on the current page — INCLUDING the user's own
+  // (so their saved highlights + reflections are visible on the Reader page).
   const highlightsOnPage = useMemo(
-    () => highlights.filter((h) => h.page === page && h.user_id !== user?.user_id),
-    [highlights, page, user],
+    () => highlights.filter((h) => h.page === page),
+    [highlights, page],
+  );
+  // Activity banner should only fire for OTHERS' new highlights, not ours.
+  const othersHighlightsOnPage = useMemo(
+    () => highlightsOnPage.filter((h) => h.user_id !== user?.user_id),
+    [highlightsOnPage, user],
   );
   useEffect(() => {
-    if (highlightsOnPage.length > 0) {
+    if (othersHighlightsOnPage.length > 0) {
       setBanner(
-        highlightsOnPage.length === 1
-          ? `${highlightsOnPage[0].user_name} highlighted this page`
-          : `${highlightsOnPage.length} new insights on this page`,
+        othersHighlightsOnPage.length === 1
+          ? `${othersHighlightsOnPage[0].user_name} highlighted this page`
+          : `${othersHighlightsOnPage.length} new insights on this page`,
       );
       const t = setTimeout(() => setBanner(null), 3800);
       return () => clearTimeout(t);
     }
-  }, [page, highlightsOnPage.length]);
+  }, [page, othersHighlightsOnPage.length]);
 
   const guest = isGuest(user);
 
@@ -397,27 +403,47 @@ export default function Reader() {
                   Pause and reflect. Select any passage to highlight.
                 </p>
               )}
-              {highlightsOnPage.map((h) => (
-                <button
-                  key={h.highlight_id}
-                  onClick={() => openHighlight(h)}
-                  data-testid={`highlight-${h.highlight_id}`}
-                  className="w-full text-left mt-3 bg-white border border-[#EAE6E1] rounded-2xl p-4 hover:border-[#C86A58]/40 transition-colors"
-                >
-                  <p className="hl-mark inline font-serif italic text-[#2C2A29]">&ldquo;{h.text}&rdquo;</p>
-                  <div className="mt-2 flex items-center justify-between text-xs text-[#787571]">
-                    <span>{h.user_name}</span>
-                    <span className="flex items-center gap-1">
-                      <MessageSquare className="w-3 h-3" /> {h.reply_count} replies
-                    </span>
-                  </div>
-                  {h.thoughts?.[0] && (
-                    <p className="mt-2 text-sm text-[#787571] line-clamp-2">
-                      &mdash; {h.thoughts[0].text}
-                    </p>
-                  )}
-                </button>
-              ))}
+              {highlightsOnPage.map((h) => {
+                const isYou = h.user_id === user?.user_id;
+                return (
+                  <button
+                    key={h.highlight_id}
+                    onClick={() => openHighlight(h)}
+                    data-testid={`highlight-${h.highlight_id}`}
+                    className={`w-full text-left mt-3 bg-white rounded-2xl p-4 hover:border-[#C86A58]/40 transition-colors ${
+                      isYou
+                        ? "border border-[#C86A58]/30 border-l-2 border-l-[#C86A58]"
+                        : "border border-[#EAE6E1]"
+                    }`}
+                  >
+                    <p className="hl-mark inline font-serif italic text-[#2C2A29]">&ldquo;{h.text}&rdquo;</p>
+                    <div className="mt-2 flex items-center justify-between text-xs text-[#787571]">
+                      <span className="flex items-center gap-2">
+                        {h.user_name}
+                        {isYou && (
+                          <span
+                            data-testid="you-indicator"
+                            className="px-1.5 py-0.5 rounded-full bg-[#C86A58]/10 text-[#C86A58] text-[10px] font-sans tracking-wider uppercase"
+                          >
+                            You
+                          </span>
+                        )}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MessageSquare className="w-3 h-3" /> {h.reply_count} replies
+                      </span>
+                    </div>
+                    {h.thoughts?.[0] && (
+                      <p
+                        data-testid={`reflection-${h.highlight_id}`}
+                        className="mt-2 text-sm text-[#787571] line-clamp-2"
+                      >
+                        &mdash; {h.thoughts[0].text}
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
               {lockedCount > 0 && page === maxPageReached && (
                 <div className="mt-4 flex items-center justify-center gap-2 text-xs text-[#A8A5A1]">
                   <Lock className="w-3 h-3" /> {lockedCount} insights wait ahead
@@ -429,7 +455,8 @@ export default function Reader() {
       </div>
 
       {/* Page navigation */}
-      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-full max-w-md flex justify-center gap-2 z-30 pointer-events-none">
+      {/* Page navigation */}
+      <div className="fixed bottom-28 left-1/2 -translate-x-1/2 w-full max-w-md flex justify-center gap-2 z-30 pointer-events-none">
         <div className="pointer-events-auto flex items-center gap-2 bg-white/90 backdrop-blur-md border border-[#EAE6E1] rounded-full shadow-sm px-2 py-1">
           <button
             disabled={page <= 1}
@@ -451,14 +478,17 @@ export default function Reader() {
         </div>
       </div>
 
-      {/* Floating selection toolbar — primary actions: Highlight + Share */}
+      {/* Floating selection toolbar — primary actions: Highlight + Share.
+          NOTE: Framer Motion writes inline `transform` which overrides
+          Tailwind's `-translate-x-1/2`. We center via `x: "-50%"` in motion
+          props instead, so the pill stays on-screen on mobile (BUG-007). */}
       <AnimatePresence>
         {selectionText && !actionSheet && !thoughtSheet && !vocabSheet && !postCreateHighlight && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            className="fixed bottom-40 left-1/2 -translate-x-1/2 max-w-md w-[calc(100%-2rem)] z-40"
+            initial={{ opacity: 0, x: "-50%", y: 10 }}
+            animate={{ opacity: 1, x: "-50%", y: 0 }}
+            exit={{ opacity: 0, x: "-50%", y: 6 }}
+            className="fixed bottom-44 left-1/2 max-w-md w-[calc(100%-2rem)] z-40"
           >
             <div className="flex items-center gap-1 bg-[#2C2A29] text-white rounded-full px-2 py-1 shadow-lg">
               <button
@@ -637,19 +667,19 @@ export default function Reader() {
                 </div>
               ))}
             </div>
-            <div className="mt-6 flex gap-2 items-end">
+            <div className="mt-6 flex flex-col gap-3">
               <textarea
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
                 placeholder="Add a quiet reply…"
-                rows={2}
-                className="flex-1 border border-[#EAE6E1] rounded-xl bg-white p-3 text-sm focus:outline-none focus:border-[#C86A58] resize-none"
+                rows={3}
+                className="w-full border border-[#EAE6E1] rounded-xl bg-white p-3 text-sm focus:outline-none focus:border-[#C86A58] resize-none"
                 data-testid="reply-input"
               />
               <button
                 onClick={postReply}
                 data-testid="reply-send"
-                className="bg-[#C86A58] hover:bg-[#B35A4A] text-white rounded-full px-4 py-2 text-sm font-medium"
+                className="w-full bg-[#C86A58] hover:bg-[#B35A4A] text-white rounded-full py-3 text-sm font-medium"
               >
                 Send
               </button>

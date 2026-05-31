@@ -21,7 +21,7 @@ export default function BottomSheet({ open, onClose, title, children, testid = "
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 220 }}
-            className="fixed inset-x-0 bottom-0 max-w-md mx-auto bg-[#FCFBF9] rounded-t-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.08)] border-t border-[#EAE6E1] p-6 z-[60] flex flex-col max-h-[80dvh]"
+            className="fixed inset-x-0 bottom-0 max-w-md mx-auto bg-[#FCFBF9] rounded-t-3xl shadow-[0_-8px_30px_rgba(0,0,0,0.08)] border-t border-[#EAE6E1] p-6 pb-[max(2.75rem,env(safe-area-inset-bottom)+2.5rem)] z-[60] flex flex-col max-h-[85dvh]"
             data-testid={testid}
           >
             <div className="mx-auto w-10 h-1 bg-[#EAE6E1] rounded-full mb-4" />
