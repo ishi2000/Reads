@@ -95,6 +95,10 @@ class HighlightCreate(BaseModel):
     page: int
     text: str
     thought: Optional[str] = ""
+    # Normalised 0..1 rects relative to the rendered .react-pdf__Page wrapper.
+    # Optional for backward compatibility — older highlights have no rects and
+    # render only as the card below the PDF, not as an on-page overlay.
+    rects: Optional[List[Dict[str, float]]] = None
 
 
 class ThoughtCreate(BaseModel):
@@ -391,6 +395,7 @@ async def create_highlight(body: HighlightCreate, user: Dict = Depends(get_curre
         "book_id": body.book_id,
         "page": body.page,
         "text": body.text,
+        "rects": body.rects or [],
         "user_id": user["user_id"],
         "user_name": user["name"],
         "created_at": now_iso(),

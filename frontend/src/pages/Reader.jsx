@@ -59,9 +59,29 @@ export default function Reader() {
       const startPage = parseInt(params.get("page") || (r.data.my_progress?.current_page || 1), 10);
       setPage(startPage > 0 ? startPage : 1);
     }).catch(() => toast.error("Could not open book"));
-    const w = containerRef.current?.clientWidth || window.innerWidth;
-    setPageWidth(Math.min(w - 32, 480));
   }, [bookId, user]);
+
+  // Responsive page width — replaces the old hard cap of 480 px that made
+  // text uncomfortably small on mobile and never grew on desktop.
+  // Mobile (< 768): full container width − 8 px padding (comfortable physical text size).
+  // Desktop (≥ 768): cap at 720 px for an ideal long-form line length.
+  useEffect(() => {
+    const compute = () => {
+      const containerW = containerRef.current?.clientWidth || window.innerWidth;
+      const isMobile = window.innerWidth < 768;
+      const target = isMobile
+        ? Math.max(280, containerW - 8)
+        : Math.min(containerW - 16, 720);
+      setPageWidth(target);
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    window.addEventListener("orientationchange", compute);
+    return () => {
+      window.removeEventListener("resize", compute);
+      window.removeEventListener("orientationchange", compute);
+    };
+  }, [book]);
 
   // Load highlights when page or maxPageReached changes
   const refreshHighlights = async () => {
@@ -71,7 +91,9 @@ export default function Reader() {
       setMaxPageReached(data.max_page_reached || 0);
       const { data: lc } = await api.get(`/books/${bookId}/locked-count`);
       setLockedCount(lc.locked || 0);
-    } catch {}
+    } catch (_e) {
+      // Best-effort refresh — swallow network errors silently.
+    }
   };
 
   useEffect(() => {
@@ -149,15 +171,17 @@ export default function Reader() {
     [highlightsOnPage, user],
   );
   useEffect(() => {
-    if (othersHighlightsOnPage.length > 0) {
-      setBanner(
-        othersHighlightsOnPage.length === 1
-          ? `${othersHighlightsOnPage[0].user_name} highlighted this page`
-          : `${othersHighlightsOnPage.length} new insights on this page`,
-      );
-      const t = setTimeout(() => setBanner(null), 3800);
-      return () => clearTimeout(t);
-    }
+    if (othersHighlightsOnPage.length === 0) return;
+    const msg =
+      othersHighlightsOnPage.length === 1
+        ? `${othersHighlightsOnPage[0].user_name} highlighted this page`
+        : `${othersHighlightsOnPage.length} new insights on this page`;
+    const showId = setTimeout(() => setBanner(msg), 0);
+    const hideId = setTimeout(() => setBanner(null), 3800);
+    return () => {
+      clearTimeout(showId);
+      clearTimeout(hideId);
+    };
   }, [page, othersHighlightsOnPage.length]);
 
   const guest = isGuest(user);
@@ -175,22 +199,54 @@ export default function Reader() {
     );
   };
 
+  // Capture the current selection's client rects, normalised 0..1 relative
+  // to the rendered .react-pdf__Page wrapper, so we can re-position the
+  // highlight overlay at any future page width / device.
+  const captureSelectionRects = () => {
+    try {
+      const sel = window.getSelection?.();
+      if (!sel || sel.rangeCount === 0) return [];
+      const pageEl = document.querySelector(".react-pdf__Page");
+      if (!pageEl) return [];
+      const pageRect = pageEl.getBoundingClientRect();
+      if (pageRect.width <= 0 || pageRect.height <= 0) return [];
+      const range = sel.getRangeAt(0);
+      const rects = Array.from(range.getClientRects())
+        // Filter zero-area rects pdf.js sometimes returns between spans
+        .filter((r) => r.width > 1 && r.height > 1)
+        .map((r) => ({
+          x: (r.left - pageRect.left) / pageRect.width,
+          y: (r.top - pageRect.top) / pageRect.height,
+          w: r.width / pageRect.width,
+          h: r.height / pageRect.height,
+        }))
+        // Drop anything outside the page (rare overflow from CSS line-height)
+        .filter((r) => r.x >= -0.02 && r.y >= -0.02 && r.x + r.w <= 1.02 && r.y + r.h <= 1.02);
+      return rects;
+    } catch {
+      return [];
+    }
+  };
+
   // Actions
   const saveHighlight = async (withThought = false) => {
     if (!selectionText) return;
     try {
+      const rects = captureSelectionRects();
       const { data } = await api.post("/highlights", {
         book_id: bookId,
         page,
         text: selectionText,
         thought: withThought ? thoughtText : "",
+        rects,
       });
       toast.success(withThought ? "Reflection saved" : "Highlighted");
       setThoughtText("");
       setActionSheet(false);
       setThoughtSheet(false);
-      // Only open the post-create sheet for a plain highlight tap. If the
-      // user already added a reflection during creation, there's no follow-up.
+      // Clear the live selection now that we've persisted its geometry —
+      // otherwise the native blue selection sits on top of our overlay.
+      window.getSelection?.()?.removeAllRanges();
       if (!withThought) {
         const created = { ...data, thoughts: [] };
         setPostCreateHighlight(created);
@@ -360,7 +416,7 @@ export default function Reader() {
       {/* PDF area */}
       <div
         ref={containerRef}
-        className="pt-20 pb-32 px-4 max-w-md mx-auto"
+        className="pt-20 pb-32 px-1 sm:px-2 max-w-3xl mx-auto"
         onMouseUp={handleMouseUp}
         onTouchEnd={handleMouseUp}
       >
@@ -383,13 +439,58 @@ export default function Reader() {
           loading={<p className="text-center text-[#A8A5A1] font-serif italic mt-12">Loading pages…</p>}
           error={<p className="text-center text-[#A8A5A1] font-serif italic mt-12">Could not open this PDF.</p>}
         >
-          <Page
-            pageNumber={page}
-            width={pageWidth}
-            renderAnnotationLayer={false}
-            renderTextLayer={true}
-            className="shadow-sm bg-white rounded-lg overflow-hidden"
-          />
+          <div className="relative inline-block w-full">
+            <Page
+              pageNumber={page}
+              width={pageWidth}
+              renderAnnotationLayer={false}
+              renderTextLayer={true}
+              className="shadow-sm bg-white rounded-lg overflow-hidden mx-auto"
+            />
+            {/* Persistent highlight overlay — terracotta tint divs absolutely
+                positioned over the page using normalised rects stored at
+                save time. Pointer-events:none for the tint; a wrapping click
+                surface re-opens the existing Discussion sheet. */}
+            {!isFuturePage && (
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 pointer-events-none"
+                data-testid="highlight-overlay-layer"
+              >
+                {highlightsOnPage
+                  .filter((h) => Array.isArray(h.rects) && h.rects.length > 0)
+                  .map((h) => (
+                    <button
+                      key={`ov-${h.highlight_id}`}
+                      onClick={() => openHighlight(h)}
+                      data-testid={`overlay-${h.highlight_id}`}
+                      className="absolute inset-0 pointer-events-none"
+                      style={{ background: "transparent" }}
+                      tabIndex={-1}
+                    >
+                      {h.rects.map((r, i) => (
+                        <span
+                          key={i}
+                          className="absolute pointer-events-auto cursor-pointer"
+                          style={{
+                            left: `${r.x * 100}%`,
+                            top: `${r.y * 100}%`,
+                            width: `${r.w * 100}%`,
+                            height: `${r.h * 100}%`,
+                            background:
+                              h.user_id === user?.user_id
+                                ? "rgba(200, 106, 88, 0.28)"
+                                : "rgba(200, 106, 88, 0.18)",
+                            borderRadius: 2,
+                            mixBlendMode: "multiply",
+                          }}
+                        />
+                      ))}
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
         </Document>
 
         {/* Highlights & locked indicator for current page */}
